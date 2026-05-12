@@ -1,0 +1,470 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+GUI 主应用模块
+
+此模块包含 DamageCalculatorApp 类，是整个应用的 GUI 核心组件。
+负责创建主窗口、布局管理、事件处理和数据展示。
+
+主要功能：
+1. 创建主窗口并设置初始属性
+2. 使用 grid 布局管理三个主要区域（左侧选择区、中间属性展示区、右侧计算区）
+3. 加载角色和武器数据
+4. 处理用户交互事件（确认选择等）
+5. 支持窗口缩放自适应
+
+依赖模块：
+- customtkinter: GUI 库
+- gui_design.gui_tools: GUI 工具组件
+- data.loader: 数据加载模块
+"""
+
+# 导入必要的模块
+import customtkinter as ctk  # CustomTkinter GUI 库
+from typing import Optional, List, Dict, Any   # 类型提示支持
+from gui_design.gui_tools import (  # GUI 工具组件导入
+    gui_settings,              # GUI 设置初始化函数
+    confirm_selection,         # 确认选择并展示属性的函数
+    ChooseTypesStarsNamesLevels  # 选择面板类
+)
+from data.loader import (      # 数据加载模块导入
+    get_characters,            # 获取角色数据函数
+    get_weapons                # 获取武器数据函数
+)
+
+
+class DamageCalculatorApp:
+    """
+    终末地伤害计算小工具主应用类
+    
+    包含完整的 GUI 界面，提供角色和武器选择功能，支持窗口缩放自适应。
+    
+    界面布局（使用 grid 权重分配）：
+    ┌─────────────────────────────────────────────────────────────┐
+    │ 左侧选择区(23%) │ 间隙(3%) │ 中间属性区(25%) │ 间隙(2%) │ 右侧计算区(47%) │
+    │ ┌─────────────┐ │          │ ┌─────────────┐ │          │ ┌─────────────┐ │
+    │ │ 角色选择面板 │ │          │ │ 角色&武器属性│ │          │ │ 伤害计算区  │ │
+    │ ├─────────────┤ │          │ │   展示区域   │ │          │ │   (开发中)  │ │
+    │ │ 武器选择面板 │ │          │ │             │ │          │ │             │ │
+    │ ├─────────────┤ │          │ └─────────────┘ │          │ └─────────────┘ │
+    │ │   确认按钮   │ │          │                 │          │                 │
+    │ └─────────────┘ │          │                 │          │                 │
+    └─────────────────────────────────────────────────────────────┘
+    
+    属性：
+        app: CTk 主窗口对象
+        big_font: 大号字体配置
+        small_font: 小号字体配置
+        left_frame: 左侧选择区框架
+        char_frame: 角色选择子框架
+        weapon_frame: 武器选择子框架
+        confirm_btn: 确认选择按钮
+        middle_frame: 中间属性展示区框架
+        middle_scroll: 中间区域滚动容器
+        right_frame: 右侧计算区框架
+        char_panel: 角色选择面板实例
+        weapon_panel: 武器选择面板实例
+        all_weapons: 所有武器数据（用于动态过滤）
+    """
+
+    def __init__(self) -> None:
+        """
+        初始化应用实例
+        
+        执行流程：
+        1. 调用 gui_settings() 初始化 GUI 外观设置
+        2. 创建 CTk 主窗口对象
+        3. 设置窗口初始大小、标题和最小尺寸
+        4. 绑定窗口大小变化事件
+        5. 初始化字体配置
+        6. 初始化 UI 组件引用（设为 None）
+        7. 调用 _setup_ui() 创建界面
+        """
+        # 初始化 GUI 全局设置（主题、外观模式等）
+        gui_settings()
+
+        # 创建主窗口对象
+        self.app: ctk.CTk = ctk.CTk()
+
+        # 设置窗口初始大小（宽度x高度）
+        self.app.geometry("1200x720")
+        
+        # 设置窗口标题
+        self.app.title("终末地伤害计算小工具")
+        
+        # 设置窗口最小尺寸（防止用户拖得太小）
+        self.app.minsize(900, 600)
+        
+        # 绑定窗口大小变化事件，用于自适应缩放
+        self.app.bind("<Configure>", self._on_window_resize)
+
+        # 初始化字体配置
+        self.big_font: ctk.CTkFont = ctk.CTkFont(
+            family="微软雅黑",  # 字体名称
+            size=14,           # 字体大小
+            weight="bold"      # 字体粗细（粗体）
+        )
+        self.small_font: ctk.CTkFont = ctk.CTkFont(
+            family="微软雅黑",  # 字体名称
+            size=12            # 字体大小（常规）
+        )
+
+        # 初始化 UI 组件引用为 None（后续在 _setup_ui 中创建）
+        self.char_frame: Optional[ctk.CTkFrame] = None
+        self.weapon_frame: Optional[ctk.CTkFrame] = None
+        self.confirm_btn: Optional[ctk.CTkButton] = None
+        self.middle_frame: Optional[ctk.CTkFrame] = None
+        self.middle_scroll: Optional[ctk.CTkScrollableFrame] = None
+        self.right_frame: Optional[ctk.CTkFrame] = None
+        self.right_scroll: Optional[ctk.CTkScrollableFrame] = None
+        self.char_panel: Optional[ChooseTypesStarsNamesLevels] = None
+        self.weapon_panel: Optional[ChooseTypesStarsNamesLevels] = None
+        self.all_weapons: List[Dict[str, Any]] = []  # 存储所有武器数据
+
+        # 创建并布局所有 UI 组件
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        """
+        设置主界面布局（使用 grid 布局实现自适应缩放）
+        
+        布局结构：
+            - 主窗口分为 6 列，使用权重分配空间
+            - 第0列：角色选择区
+            - 第1列：武器选择区（含确认按钮）
+            - 第3列：中间属性展示区
+            - 第5列：右侧乘区数据计算区
+        
+        实现步骤：
+            1. 配置主窗口 grid 布局的行和列权重
+            2. 创建角色选择框架并放置在第0列
+            3. 创建武器选择框架并放置在第1列（包含确认按钮）
+            4. 创建中间属性展示框架并放置在第3列
+            5. 创建右侧乘区数据框架并放置在第5列
+            6. 调用 _load_data_and_create_panels 加载数据并创建选择面板
+        """
+        # 配置主窗口 grid 布局的行权重（只有 1 行，权重为 1 表示占满垂直空间）
+        self.app.grid_rowconfigure(0, weight=1)
+        
+        # 配置主窗口 grid 布局的列权重（按比例分配宽度）
+        # 注：CTkFrame 有内置最小宽度限制，设置 weight=0 让组件仅占用最小尺寸
+        self.app.grid_columnconfigure(0, weight=0)   # 角色选择区（仅最小宽度）
+        self.app.grid_columnconfigure(1, weight=0)   # 武器选择区（仅最小宽度）
+        self.app.grid_columnconfigure(2, weight=0)   # 无间隙列
+        self.app.grid_columnconfigure(3, weight=0)   # 中间属性区（仅最小宽度）
+        self.app.grid_columnconfigure(4, weight=0)   # 无间隙列
+        self.app.grid_columnconfigure(5, weight=1)   # 右侧计算区（占用剩余所有空间）
+
+        # ==================== 角色选择区（左侧）====================
+        self.char_frame = ctk.CTkFrame(
+            self.app,           # 父容器
+            corner_radius=20    # 圆角半径（美化）
+        )
+        # 将角色框架放置在第 0 行第 0 列
+        self.char_frame.grid(
+            row=0,              # 行号
+            column=0,           # 列号
+            padx=(10, 5),      # 水平内边距（左边10，右边5）
+            pady=10,            # 垂直内边距
+            sticky="nsew"       # 四边拉伸（north, south, east, west）
+        )
+
+        # ==================== 武器选择区（角色选择右侧）====================
+        self.weapon_frame = ctk.CTkFrame(
+            self.app,           # 父容器
+            corner_radius=20    # 圆角半径（美化）
+        )
+        # 将武器框架放置在第 0 行第 1 列
+        self.weapon_frame.grid(
+            row=0,              # 行号
+            column=1,           # 列号
+            padx=5,             # 水平内边距
+            pady=10,            # 垂直内边距
+            sticky="nsew"       # 四边拉伸（north, south, east, west）
+        )
+        
+        # 确认按钮（放在武器选择区下方）
+        self.confirm_btn = ctk.CTkButton(
+            self.weapon_frame,        # 父容器（放在武器框架内）
+            text="确认选择",          # 按钮文本
+            font=self.big_font,       # 使用大号字体
+            command=self._on_confirm  # 点击事件处理函数
+        )
+        # 配置武器框架内部布局（确认按钮放在底部）
+        self.weapon_frame.grid_rowconfigure(0, weight=1)  # 武器选择区
+        self.weapon_frame.grid_rowconfigure(1, weight=0)  # 按钮区不拉伸
+        self.weapon_frame.grid_columnconfigure(0, weight=1)
+        
+        self.confirm_btn.grid(
+            row=1,
+            column=0,
+            padx=10,
+            pady=10,
+            sticky="ew"  # 水平拉伸，垂直居中
+        )
+
+        # ==================== 中间属性展示区 ====================
+        self.middle_frame = ctk.CTkFrame(
+            self.app,
+            corner_radius=20
+        )
+        self.middle_frame.grid(
+            row=0,
+            column=3,
+            padx=5,
+            pady=10,
+            sticky="nsew"
+        )
+        # 配置中间框架内部布局
+        self.middle_frame.grid_rowconfigure(0, weight=1)
+        self.middle_frame.grid_columnconfigure(0, weight=1)
+
+        # 滚动框架（用于内容过多时滚动）
+        self.middle_scroll = ctk.CTkScrollableFrame(
+            self.middle_frame,      # 父容器
+            label_text="角色 & 武器属性",  # 滚动框架标题
+            label_font=self.big_font     # 标题字体
+        )
+        self.middle_scroll.grid(
+            row=0,
+            column=0,
+            padx=5,
+            pady=5,
+            sticky="nsew"
+        )
+
+        # ==================== 右侧计算区（预留）====================
+        self.right_frame = ctk.CTkFrame(
+            self.app,
+            corner_radius=20
+        )
+        self.right_frame.grid(
+            row=0,
+            column=5,
+            padx=(5, 10),  # 左边距5，右边距10
+            pady=10,
+            sticky="nsew"
+        )
+        # 配置右侧框架内部布局
+        self.right_frame.grid_rowconfigure(0, weight=1)
+        self.right_frame.grid_columnconfigure(0, weight=1)
+        
+        # 滚动框架（用于展示乘区数据）
+        self.right_scroll = ctk.CTkScrollableFrame(
+            self.right_frame,        # 父容器
+            label_text="乘区数据",    # 滚动框架标题
+            label_font=self.big_font # 标题字体
+        )
+        self.right_scroll.grid(
+            row=0,
+            column=0,
+            padx=5,
+            pady=5,
+            sticky="nsew"
+        )
+
+        # 加载数据并创建选择面板
+        self._load_data_and_create_panels()
+
+    def _load_data_and_create_panels(self) -> None:
+        """
+        加载角色和武器数据并创建选择面板
+        
+        执行流程：
+        1. 调用 get_characters() 获取角色数据列表
+        2. 调用 get_weapons() 获取武器数据列表
+        3. 创建角色选择面板实例
+        4. 创建武器选择面板实例（放在武器框架的第一行）
+        5. 设置角色选择变化时的回调
+        """
+        # 获取角色数据（如果为空则使用空列表）
+        characters = get_characters()
+        if not characters:
+            characters = []
+
+        # 获取武器数据（如果为空则使用空列表）
+        weapons = get_weapons()
+        if not weapons:
+            weapons = []
+        
+        # 保存所有武器数据
+        self.all_weapons = weapons
+
+        # 创建角色选择面板
+        assert self.char_frame is not None, "char_frame 未初始化"
+        self.char_panel = ChooseTypesStarsNamesLevels.use(
+            self.char_frame,  # 父框架
+            characters,       # 角色数据列表
+            self.big_font     # 使用的字体
+        )
+
+        # 创建武器选择面板（放在武器框架的第一行）
+        assert self.weapon_frame is not None, "weapon_frame 未初始化"
+        
+        # 创建武器子框架（放在武器框架的第一行）
+        weapon_inner_frame = ctk.CTkFrame(
+            self.weapon_frame,
+            fg_color="transparent"
+        )
+        weapon_inner_frame.grid(
+            row=0,
+            column=0,
+            padx=5,
+            pady=5,
+            sticky="nsew"
+        )
+        
+        self.weapon_panel = ChooseTypesStarsNamesLevels.use(
+            weapon_inner_frame,     # 父框架（武器框架内的子框架）
+            weapons,               # 武器数据列表
+            self.big_font,          # 使用的字体
+            is_weapon_panel=True   # 是否为武器面板（启用特殊能力滑块）
+        )
+        
+        # 设置角色选择变化时的回调
+        self.char_panel.selected_name.trace_add("write", self._on_char_name_change)
+        
+        # 根据默认选中的角色初始化武器面板
+        # 角色面板初始化时已经自动选择了第一个角色，现在需要同步更新武器面板
+        self._on_char_name_change()
+        
+        # 如果没有选中角色或没有可用武器，禁用武器面板
+        char_data = self.char_panel.get_selected_data()
+        if not char_data:
+            self.weapon_panel.disable_panel()
+        else:
+            char_weapon_type = char_data.get("武器", "")
+            filtered_weapons = [w for w in self.all_weapons if w.get("类型") == char_weapon_type]
+            if not filtered_weapons:
+                self.weapon_panel.disable_panel()
+
+    def _on_char_name_change(self, *args: str) -> None:
+        """
+        角色名称变化时的回调函数
+        
+        功能：
+        1. 获取当前选中角色的武器类型
+        2. 根据武器类型过滤可用武器列表
+        3. 如果没有对应类型的武器，显示提示
+        4. 更新武器面板的可用武器列表
+        5. 启用/禁用武器面板
+        
+        参数：
+            *args: trace_add 回调参数（忽略）
+        """
+        assert self.char_panel is not None, "char_panel 未初始化"
+        assert self.weapon_panel is not None, "weapon_panel 未初始化"
+        
+        # 获取当前选中的角色数据
+        char_data = self.char_panel.get_selected_data()
+        
+        if not char_data:
+            # 未选择角色，禁用武器面板
+            self.weapon_panel.disable_panel()
+            # 直接设置空数据，不调用 update_data_list 避免滑块问题
+            self.weapon_panel.list_c_w = []
+            self.weapon_panel.selected_name.set("")
+            return
+        
+        # 获取角色的武器类型
+        char_weapon_type = char_data.get("武器", "")
+        
+        if not char_weapon_type:
+            # 角色没有指定武器类型
+            self.weapon_panel.disable_panel()
+            self.weapon_panel.list_c_w = []
+            self.weapon_panel.selected_name.set("")
+            return
+        
+        # 根据角色武器类型过滤武器列表
+        filtered_weapons = [
+            weapon for weapon in self.all_weapons
+            if weapon.get("类型", "") == char_weapon_type
+        ]
+        
+        if not filtered_weapons:
+            # 没有对应类型的武器，显示提示
+            self.weapon_panel.disable_panel()
+            self.weapon_panel.list_c_w = [{
+                "名称": f"暂未收录{char_weapon_type}类型武器",
+                "类型": char_weapon_type,
+                "星级": 0,
+                "等级": []  # 空数组，避免显示等级滑块
+            }]
+            # 手动设置菜单值
+            self.weapon_panel.type_menu.configure(values=[char_weapon_type])
+            self.weapon_panel.selected_type.set(char_weapon_type)
+            self.weapon_panel.star_menu.configure(values=["0"])
+            self.weapon_panel.selected_star.set("0")
+            self.weapon_panel.name_menu.configure(values=[f"暂未收录{char_weapon_type}类型武器"])
+            self.weapon_panel.selected_name.set(f"暂未收录{char_weapon_type}类型武器")
+            # 清空等级显示
+            if self.weapon_panel.level_label:
+                self.weapon_panel.level_label.configure(text="")
+            self.weapon_panel.selected_level.set("")
+        else:
+            # 有可用武器，先启用面板再更新列表
+            self.weapon_panel.enable_panel()
+            self.weapon_panel.update_data_list(filtered_weapons)
+
+    def _on_confirm(self) -> None:
+        """
+        确认按钮点击事件处理函数
+        
+        功能：调用 confirm_selection() 函数，根据当前选中的角色和武器
+        在中间区域展示对应的属性信息。
+        
+        前置条件：确保所有必要组件已初始化
+        """
+        # 断言检查组件是否已初始化
+        assert self.middle_scroll is not None, "middle_scroll 未初始化"
+        assert self.char_panel is not None, "char_panel 未初始化"
+        assert self.weapon_panel is not None, "weapon_panel 未初始化"
+        
+        # 调用确认选择函数，更新中间区域和右侧区域显示
+        confirm_selection(
+            self.middle_scroll,  # 中间显示区域（角色/武器属性）
+            self.right_scroll,   # 右侧显示区域（乘区数据）
+            self.char_panel,     # 角色选择面板
+            self.weapon_panel,   # 武器选择面板
+            self.big_font,       # 大号字体
+            self.small_font      # 小号字体
+        )
+
+    def _on_window_resize(self, event) -> None:
+        """
+        窗口大小变化事件处理函数
+        
+        参数：
+            event: Tkinter 事件对象（包含窗口大小等信息）
+        
+        当前功能：预留接口，可用于动态调整字体大小等高级功能
+        """
+        # 可以在这里添加额外的缩放逻辑
+        # 例如根据窗口大小动态调整字体大小
+        # 当前预留，暂不实现具体功能
+        pass
+
+    def run(self) -> None:
+        """
+        启动应用主循环
+        
+        调用 CTk 窗口的 mainloop() 方法，开始事件循环，显示窗口。
+        此方法会阻塞直到窗口关闭。
+        """
+        self.app.mainloop()
+
+
+def main() -> None:
+    """
+    备用入口函数（可直接运行此模块测试）
+    
+    功能：创建应用实例并启动
+    """
+    app = DamageCalculatorApp()
+    app.run()
+
+
+# 模块直接运行时的入口
+if __name__ == "__main__":
+    main()

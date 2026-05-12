@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "endfield_damage_calculator"
+version = "1.0.0"
+description = "终末地伤害计算小工具"
+authors = [
+    { name = "Your Name", email = "your@email.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "customtkinter>=5.2.2",
+]
+
+[project.scripts]
+endfield-calculator = "main:main"
+
+[tool.pyinstaller]
+script = "main.py"
+onefile = true
+windowed = true
+name = "endfield_damage_calculator"
+icon = ""  # 如果有图标文件，设置路径
+
+[tool.pyinstaller.datas]
+# 包含角色和武器数据
+"character_weapon_equipment/character_data/characters.json" = "character_weapon_equipment/character_data/"
+"character_weapon_equipment/weapon_data/weapons.json" = "character_weapon_equipment/weapon_data/"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
