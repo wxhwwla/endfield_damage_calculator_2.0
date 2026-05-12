@@ -79,7 +79,7 @@ def get_version() -> str:
     返回：
         版本号字符串（如 "1.3.0"）
     """
-    return "1.5.4"
+    return "1.5.3"
 
 
 def show_help() -> None:
