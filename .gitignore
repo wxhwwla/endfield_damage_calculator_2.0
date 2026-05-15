@@ -1,0 +1,12 @@
+github_upload_module.py
+git_key.txt
+.git/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+build/
+dist/
+*.spec
+debug.log
+*.zip

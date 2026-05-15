@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+乘区计算模块
+
+此模块包含所有乘区的定义和计算逻辑。
+
+乘区是游戏伤害计算公式中的乘法因子区域，包括：
+- 攻击倍率区
+- 伤害加成区
+- 防御减伤区
+- 抗性减伤区
+- 能力值加成区
+- 最终攻击力区
+- 等等
+
+使用方式：
+    from calculation.multiplicative_zones import ZoneManager
+    manager = ZoneManager()
+    manager.add_zone(AttackMultiplierZone())
+    total_multiplier = manager.calculate_total()
+"""
+
+from .base_zone import BaseZone
+from .zone_manager import ZoneManager
+from .defense_zone import DefenseReductionZone
+from .attribute_zone import (
+    AttributeMultiplierZone,
+    AttributeZoneManager,
+    calculate_attribute_zones,
+    calculate_attribute_zones_with_details
+)
+from .ability_bonus_zone import (
+    AbilityBonusZone,
+    calculate_ability_bonus,
+    calculate_ability_bonus_with_details
+)
+from .final_attack_zone import (
+    FinalAttackZone,
+    calculate_final_attack,
+    calculate_final_attack_with_details
+)
+
+__all__ = [
+    'BaseZone',
+    'ZoneManager',
+    'DefenseReductionZone',
+    'AttributeMultiplierZone',
+    'AttributeZoneManager',
+    'calculate_attribute_zones',
+    'calculate_attribute_zones_with_details',
+    'AbilityBonusZone',
+    'calculate_ability_bonus',
+    'calculate_ability_bonus_with_details',
+    'FinalAttackZone',
+    'calculate_final_attack',
+    'calculate_final_attack_with_details'
+]
