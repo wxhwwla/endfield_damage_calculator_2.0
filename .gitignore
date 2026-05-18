@@ -10,3 +10,4 @@ dist/
 *.spec
 debug.log
 *.zip
+*.md
