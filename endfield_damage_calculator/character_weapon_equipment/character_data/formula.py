@@ -9,6 +9,16 @@ from typing import Dict, List, Any, Union
 from calculation.formula import calculate_growth_curve, calculate_skill_curve
 
 
+# 默认成长参数配置（用于向后兼容）
+DEFAULT_GROWTH_PARAMS: Dict[str, Any] = {
+    "力量": {"base": 0, "growth": 0, "divisor": 1, "offset": 0},
+    "敏捷": {"base": 0, "growth": 0, "divisor": 1, "offset": 0},
+    "智识": {"base": 0, "growth": 0, "divisor": 1, "offset": 0},
+    "意志": {"base": 0, "growth": 0, "divisor": 1, "offset": 0},
+    "基础攻击力": {"base": 0, "growth": 0, "divisor": 1, "offset": 0},
+}
+
+
 def generate_character_attributes(
     growth_params: Dict[str, Any]
 ) -> Dict[str, Union[List[float], List[List[float]]]]:

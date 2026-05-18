@@ -46,10 +46,8 @@ from pathlib import Path
 # 添加路径以便导入公式模块
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from calculation.formula import (
-    levels, talent, trust, trust_add,
-    generate_character_attributes, DEFAULT_GROWTH_PARAMS
-)
+from calculation.formula import levels, talent, trust, trust_add
+from .formula import generate_character_attributes, DEFAULT_GROWTH_PARAMS
 from data.loader import check_and_save_characters as check_json_to_save
 
 
